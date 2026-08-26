@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '../types';
 import { authApi } from '../api/auth.api';
+import { DEMO_USERS } from '../api/demoData';
 
 interface AuthContextType {
   user: User | null;
@@ -24,14 +25,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const initAuth = async () => {
       const storedToken = localStorage.getItem('pulse_token');
       if (storedToken) {
-        try {
-          const data = await authApi.getMe();
-          setUser(data.user);
-        } catch (err) {
-          console.error('Session restoration failed:', err);
-          localStorage.removeItem('pulse_token');
-          setToken(null);
-          setUser(null);
+        if (storedToken.startsWith('demo-token-')) {
+          const userId = storedToken.replace('demo-token-', '');
+          const matched = DEMO_USERS.find((u) => u.id === userId) || DEMO_USERS[0];
+          setUser(matched);
+        } else {
+          try {
+            const data = await authApi.getMe();
+            if (data && data.user) {
+              setUser(data.user);
+            }
+          } catch (err) {
+            console.error('Session restoration failed:', err);
+            localStorage.removeItem('pulse_token');
+            setToken(null);
+            setUser(null);
+          }
         }
       }
       setIsLoading(false);
@@ -62,7 +71,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateUser = async (data: Partial<User>) => {
     const res = await authApi.updateProfile(data);
-    setUser(res.user);
+    if (res && res.user) {
+      setUser(res.user);
+    }
   };
 
   return (

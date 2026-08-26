@@ -18,14 +18,15 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Intercept 401 responses
+// Intercept responses: if an endpoint returns HTML (e.g. from Firebase SPA rewrites), treat as network/backend error
 apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // If token expired or invalid, clear stored session if needed
-      // (do not auto-redirect if checking public routes)
+  (response) => {
+    if (typeof response.data === 'string' && response.data.trim().startsWith('<')) {
+      return Promise.reject(new Error('Backend server is not connected.'));
     }
+    return response;
+  },
+  (error) => {
     return Promise.reject(error);
   }
 );

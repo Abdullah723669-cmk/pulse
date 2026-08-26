@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
 import { ChatProvider } from './context/ChatContext';
 import { MainLayout } from './components/layout/MainLayout';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 
 // Pages
 import { FeedPage } from './pages/FeedPage';
@@ -23,53 +24,47 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 export const App: React.FC = () => {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <SocketProvider>
-          <ChatProvider>
-            <Routes>
-              {/* Auth Routes */}
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AuthProvider>
+          <SocketProvider>
+            <ChatProvider>
+              <Routes>
+                {/* Auth Routes */}
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
 
-              {/* Main App Routes wrapped in Layout */}
-              <Route element={<MainLayout />}>
-                <Route path="/" element={<FeedPage />} />
-                <Route path="/explore" element={<ExplorePage />} />
-                <Route path="/profile/:username" element={<ProfilePage />} />
-                <Route
-                  path="/notifications"
-                  element={
-                    <ProtectedRoute>
-                      <NotificationsPage />
-                    </ProtectedRoute>
-                  }
-                />
-              </Route>
+                {/* Main Layout Routes */}
+                <Route element={<MainLayout />}>
+                  <Route path="/" element={<FeedPage />} />
+                  <Route path="/explore" element={<ExplorePage />} />
+                  <Route path="/profile/:username" element={<ProfilePage />} />
+                  <Route
+                    path="/notifications"
+                    element={
+                      <ProtectedRoute>
+                        <NotificationsPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/chat"
+                    element={
+                      <ProtectedRoute>
+                        <ChatPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                </Route>
 
-              {/* Chat Full View */}
-              <Route
-                path="/chat"
-                element={
-                  <ProtectedRoute>
-                    <div className="flex justify-center bg-[#090d16] min-h-screen">
-                      <div className="w-full max-w-7xl flex">
-                        <MainLayout />
-                      </div>
-                    </div>
-                  </ProtectedRoute>
-                }
-              >
-                <Route index element={<ChatPage />} />
-              </Route>
-
-              {/* Fallback */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </ChatProvider>
-        </SocketProvider>
-      </AuthProvider>
-    </BrowserRouter>
+                {/* Fallback */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </ChatProvider>
+          </SocketProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 };
 

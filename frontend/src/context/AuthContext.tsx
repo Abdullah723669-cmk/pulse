@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '../types';
 import { authApi } from '../api/auth.api';
-import { DEMO_USERS } from '../api/demoData';
 
 interface AuthContextType {
   user: User | null;
@@ -21,26 +20,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('pulse_token'));
   const [isLoading, setIsLoading] = useState(true);
 
+  // On app start — restore session by calling /api/auth/me with stored token
   useEffect(() => {
     const initAuth = async () => {
       const storedToken = localStorage.getItem('pulse_token');
       if (storedToken) {
-        if (storedToken.startsWith('demo-token-')) {
-          const userId = storedToken.replace('demo-token-', '');
-          const matched = DEMO_USERS.find((u) => u.id === userId) || DEMO_USERS[0];
-          setUser(matched);
-        } else {
-          try {
-            const data = await authApi.getMe();
-            if (data && data.user) {
-              setUser(data.user);
-            }
-          } catch (err) {
-            console.error('Session restoration failed:', err);
+        try {
+          const data = await authApi.getMe();
+          if (data && data.user) {
+            setUser(data.user);
+          } else {
+            // Token invalid — clear it
             localStorage.removeItem('pulse_token');
             setToken(null);
-            setUser(null);
           }
+        } catch {
+          // Token expired or backend error — clear session
+          localStorage.removeItem('pulse_token');
+          setToken(null);
         }
       }
       setIsLoading(false);
@@ -77,18 +74,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        token,
-        isLoading,
-        login,
-        register,
-        logout,
-        updateUser,
-        setUser,
-      }}
-    >
+    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout, updateUser, setUser }}>
       {children}
     </AuthContext.Provider>
   );
@@ -96,8 +82,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };

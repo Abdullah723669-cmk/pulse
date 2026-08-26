@@ -3,6 +3,7 @@ import { Post, Comment, MediaItem } from '../types';
 import { DEMO_POSTS } from './demoData';
 
 export const postApi = {
+  // READ — demo fallback only when backend is truly offline
   getFeed: async (page = 1, limit = 15): Promise<{ posts: Post[]; page: number; hasMore: boolean }> => {
     try {
       const res = await apiClient.get<{ posts: Post[]; page: number; hasMore: boolean }>(
@@ -23,49 +24,23 @@ export const postApi = {
       if (res.data && Array.isArray(res.data.posts)) {
         return res.data;
       }
-      return { posts: DEMO_POSTS.filter((p) => p.author.username === username) };
+      return { posts: [] };
     } catch {
-      return { posts: DEMO_POSTS.filter((p) => p.author.username === username) };
+      return { posts: [] };
     }
   },
 
+  // WRITES — must always persist to Neon, NO demo fallback
   createPost: async (data: { content: string; media: MediaItem[] }): Promise<{ message: string; post: Post }> => {
-    try {
-      const res = await apiClient.post<{ message: string; post: Post }>('/api/posts', data);
-      return res.data;
-    } catch {
-      // Local fallback post creation
-      const newPost: Post = {
-        id: 'post-' + Date.now(),
-        content: data.content,
-        media: data.media || [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        author: {
-          id: 'user-current',
-          name: 'You',
-          username: 'you',
-          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
-          isVerified: true,
-        },
-        likesCount: 0,
-        commentsCount: 0,
-        isLiked: false,
-        recentComments: [],
-      };
-      return { message: 'Post created', post: newPost };
-    }
+    const res = await apiClient.post<{ message: string; post: Post }>('/api/posts', data);
+    return res.data;
   },
 
   likePost: async (postId: string): Promise<{ message: string; isLiked: boolean; likesCount: number }> => {
-    try {
-      const res = await apiClient.post<{ message: string; isLiked: boolean; likesCount: number }>(
-        `/api/posts/${postId}/like`
-      );
-      return res.data;
-    } catch {
-      return { message: 'Liked', isLiked: true, likesCount: 1 };
-    }
+    const res = await apiClient.post<{ message: string; isLiked: boolean; likesCount: number }>(
+      `/api/posts/${postId}/like`
+    );
+    return res.data;
   },
 
   getComments: async (postId: string): Promise<{ comments: Comment[] }> => {
@@ -81,34 +56,14 @@ export const postApi = {
   },
 
   addComment: async (postId: string, content: string): Promise<{ message: string; comment: Comment }> => {
-    try {
-      const res = await apiClient.post<{ message: string; comment: Comment }>(`/api/posts/${postId}/comments`, {
-        content,
-      });
-      return res.data;
-    } catch {
-      const newComment: Comment = {
-        id: 'c-' + Date.now(),
-        content,
-        createdAt: new Date().toISOString(),
-        user: {
-          id: 'user-current',
-          name: 'You',
-          username: 'you',
-          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
-          isVerified: true,
-        },
-      };
-      return { message: 'Comment added', comment: newComment };
-    }
+    const res = await apiClient.post<{ message: string; comment: Comment }>(`/api/posts/${postId}/comments`, {
+      content,
+    });
+    return res.data;
   },
 
   deletePost: async (postId: string): Promise<{ message: string }> => {
-    try {
-      const res = await apiClient.delete<{ message: string }>(`/api/posts/${postId}`);
-      return res.data;
-    } catch {
-      return { message: 'Deleted' };
-    }
+    const res = await apiClient.delete<{ message: string }>(`/api/posts/${postId}`);
+    return res.data;
   },
 };

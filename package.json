@@ -1,0 +1,15 @@
+{
+  "name": "pulse-chat-app",
+  "version": "1.0.0",
+  "description": "Pulse - Social Feed & Follower-Gated Real-Time Chat App",
+  "private": true,
+  "scripts": {
+    "dev": "npm run dev:backend & npm run dev:frontend",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build:backend": "npm --prefix backend run build",
+    "build:frontend": "npm --prefix frontend run build",
+    "seed:backend": "npm --prefix backend run prisma:seed"
+  },
+  "keywords": ["chat", "social", "firebase", "render", "neon", "postgresql", "socketio"]
+}

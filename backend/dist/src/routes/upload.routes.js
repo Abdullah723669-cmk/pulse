@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const upload_controller_1 = require("../controllers/upload.controller");
+const upload_middleware_1 = require("../middleware/upload.middleware");
+const auth_middleware_1 = require("../middleware/auth.middleware");
+const router = (0, express_1.Router)();
+router.use(auth_middleware_1.authenticateJWT);
+router.post('/single', upload_middleware_1.upload.single('file'), upload_controller_1.uploadMedia);
+router.post('/multiple', upload_middleware_1.upload.array('files', 5), upload_controller_1.uploadMultipleMedia);
+exports.default = router;

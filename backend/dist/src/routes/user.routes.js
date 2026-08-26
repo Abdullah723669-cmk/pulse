@@ -1,0 +1,14 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const user_controller_1 = require("../controllers/user.controller");
+const auth_middleware_1 = require("../middleware/auth.middleware");
+const router = (0, express_1.Router)();
+router.get('/search', auth_middleware_1.optionalAuth, user_controller_1.searchUsers);
+router.get('/suggested', auth_middleware_1.optionalAuth, user_controller_1.getSuggestedUsers);
+router.get('/profile/:username', auth_middleware_1.optionalAuth, user_controller_1.getUserProfile);
+router.post('/:id/follow', auth_middleware_1.authenticateJWT, user_controller_1.followUser);
+router.delete('/:id/unfollow', auth_middleware_1.authenticateJWT, user_controller_1.unfollowUser);
+router.get('/:id/followers', auth_middleware_1.optionalAuth, user_controller_1.getFollowers);
+router.get('/:id/following', auth_middleware_1.optionalAuth, user_controller_1.getFollowing);
+exports.default = router;

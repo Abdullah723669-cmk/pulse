@@ -1,5 +1,11 @@
 import { Request, Response } from 'express';
 
+const getFileFullUrl = (req: Request, filename: string): string => {
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+  const host = req.get('host') || 'pulse-hbu2.onrender.com';
+  return `${protocol}://${host}/uploads/${filename}`;
+};
+
 export const uploadMedia = (req: Request, res: Response): void => {
   try {
     if (!req.file) {
@@ -12,7 +18,7 @@ export const uploadMedia = (req: Request, res: Response): void => {
     const isImage = file.mimetype.startsWith('image/');
 
     const type = isVideo ? 'video' : isImage ? 'image' : 'file';
-    const url = `/uploads/${file.filename}`;
+    const url = getFileFullUrl(req, file.filename);
 
     res.json({
       url,
@@ -42,7 +48,7 @@ export const uploadMultipleMedia = (req: Request, res: Response): void => {
       const type = isVideo ? 'video' : isImage ? 'image' : 'file';
 
       return {
-        url: `/uploads/${file.filename}`,
+        url: getFileFullUrl(req, file.filename),
         type,
         filename: file.filename,
         originalName: file.originalname,

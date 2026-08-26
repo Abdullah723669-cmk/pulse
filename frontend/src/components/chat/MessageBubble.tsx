@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { Message } from '../../types';
 import { VideoPlayer } from '../feed/VideoPlayer';
 import { MediaLightbox } from '../ui/MediaLightbox';
+import { getMediaUrl } from '../../utils/media';
 
 interface MessageBubbleProps {
   message: Message;
@@ -17,6 +18,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwn }) 
     ? format(new Date(message.createdAt), 'h:mm a')
     : '';
 
+  const mediaUrl = getMediaUrl(message.mediaUrl);
+
   return (
     <div className={`flex flex-col mb-3.5 ${isOwn ? 'items-end' : 'items-start'}`}>
       <div
@@ -27,17 +30,27 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwn }) 
         }`}
       >
         {/* Media attachment */}
-        {message.mediaUrl && (
-          <div className="mb-2 rounded-xl overflow-hidden">
+        {mediaUrl && (
+          <div className="mb-2 rounded-xl overflow-hidden bg-slate-900/80">
             {message.mediaType === 'video' ? (
-              <VideoPlayer src={message.mediaUrl} className="max-h-64" />
+              <VideoPlayer src={mediaUrl} className="max-h-64 rounded-xl" />
             ) : (
-              <img
-                src={message.mediaUrl}
-                alt="Attachment"
+              <div
                 onClick={() => setShowLightbox(true)}
-                className="max-h-64 w-full object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-              />
+                className="cursor-pointer group relative overflow-hidden rounded-xl"
+              >
+                <img
+                  src={mediaUrl}
+                  alt="Attachment"
+                  className="max-h-72 w-full object-cover rounded-xl group-hover:scale-102 transition-transform duration-300"
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <span className="text-white text-xs font-semibold px-3 py-1 rounded-full bg-black/60 backdrop-blur-sm">
+                    Click to enlarge
+                  </span>
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -68,9 +81,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwn }) 
         </div>
       </div>
 
-      {showLightbox && message.mediaUrl && (
+      {showLightbox && mediaUrl && (
         <MediaLightbox
-          media={[{ url: message.mediaUrl, type: (message.mediaType as any) || 'image' }]}
+          media={[{ url: mediaUrl, type: (message.mediaType as any) || 'image' }]}
           currentIndex={0}
           onClose={() => setShowLightbox(false)}
           onNavigate={() => {}}

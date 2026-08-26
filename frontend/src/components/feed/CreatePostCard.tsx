@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { uploadApi } from '../../api/upload.api';
 import { postApi } from '../../api/post.api';
 import { MediaItem, Post } from '../../types';
+import { getMediaUrl } from '../../utils/media';
 
 interface CreatePostCardProps {
   onPostCreated: (newPost: Post) => void;
@@ -114,13 +115,13 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({ onPostCreated })
                   >
                     {item.type === 'video' ? (
                       <video
-                        src={item.url}
+                        src={getMediaUrl(item.url)}
                         className="w-full h-full object-cover max-h-44"
                         controls
                       />
                     ) : (
                       <img
-                        src={item.url}
+                        src={getMediaUrl(item.url)}
                         alt="Upload preview"
                         className="w-full h-full object-cover max-h-44"
                       />

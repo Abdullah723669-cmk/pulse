@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Send, Image as ImageIcon, Video, Loader2, X } from 'lucide-react';
 import { uploadApi } from '../../api/upload.api';
 import { MediaItem } from '../../types';
+import { getMediaUrl } from '../../utils/media';
 
 interface ChatInputProps {
   onSendMessage: (text?: string, mediaUrl?: string, mediaType?: 'image' | 'video' | 'file') => Promise<void>;
@@ -80,9 +81,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       {attachment && (
         <div className="mb-2 p-2 rounded-xl bg-slate-800/80 border border-slate-700 inline-flex items-center gap-3 relative">
           {attachment.type === 'video' ? (
-            <video src={attachment.url} className="w-14 h-14 object-cover rounded-lg" />
+            <video src={getMediaUrl(attachment.url)} className="w-14 h-14 object-cover rounded-lg" />
           ) : (
-            <img src={attachment.url} alt="Attached" className="w-14 h-14 object-cover rounded-lg" />
+            <img src={getMediaUrl(attachment.url)} alt="Attached" className="w-14 h-14 object-cover rounded-lg" />
           )}
           <div className="text-xs">
             <p className="font-medium text-slate-200 uppercase">{attachment.type} attachment</p>

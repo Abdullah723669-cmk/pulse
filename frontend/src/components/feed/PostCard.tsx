@@ -18,6 +18,7 @@ import { useChat } from '../../context/ChatContext';
 import { postApi } from '../../api/post.api';
 import { VideoPlayer } from './VideoPlayer';
 import { MediaLightbox } from '../ui/MediaLightbox';
+import { getMediaUrl } from '../../utils/media';
 
 interface PostCardProps {
   post: Post;
@@ -223,7 +224,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onDelete }) => {
               if (item.type === 'video') {
                 return (
                   <div key={idx} className="mb-2">
-                    <VideoPlayer src={item.url} poster={item.thumbnail} />
+                    <VideoPlayer src={getMediaUrl(item.url)} poster={getMediaUrl(item.thumbnail)} />
                   </div>
                 );
               }
@@ -250,7 +251,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onDelete }) => {
                       className="cursor-pointer overflow-hidden rounded-xl bg-slate-900 border border-slate-800/80 aspect-video sm:aspect-square relative group"
                     >
                       <img
-                        src={img.url}
+                        src={getMediaUrl(img.url)}
                         alt="Post attachment"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         loading="lazy"

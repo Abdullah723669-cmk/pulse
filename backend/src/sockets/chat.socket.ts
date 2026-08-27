@@ -17,8 +17,18 @@ interface AuthenticatedSocket extends Socket {
 // Track online users: userId -> Set of socket IDs
 const onlineUsers = new Map<string, Set<string>>();
 
-// Track active calls: userId -> { callId: string, peerId: string, callType: 'audio' | 'video' }
-const activeCalls = new Map<string, { callId: string; peerId: string; callType: 'audio' | 'video' }>();
+// Track active calls: userId -> { callId: string, peerId: string, callType: 'audio' | 'video', startedAt: number }
+const activeCalls = new Map<string, { callId: string; peerId: string; callType: 'audio' | 'video'; startedAt: number }>();
+
+// Auto-cleanup stale calls older than 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [userId, call] of activeCalls.entries()) {
+    if (now - call.startedAt > 5 * 60 * 1000) {
+      activeCalls.delete(userId);
+    }
+  }
+}, 60 * 1000);
 
 export const setupChatSocket = (io: SocketIOServer) => {
   // Authentication middleware for Socket.io
@@ -227,6 +237,11 @@ export const setupChatSocket = (io: SocketIOServer) => {
       try {
         const { targetUserId, offer, callType, callId } = data;
 
+        if (!targetUserId || !offer) {
+          socket.emit('call_failed', { callId, reason: 'Invalid call request parameters.' });
+          return;
+        }
+
         // Check follower permission
         const permission = await checkCanChat(userId, targetUserId);
         if (!permission.canChat) {
@@ -238,25 +253,20 @@ export const setupChatSocket = (io: SocketIOServer) => {
         }
 
         // Check if recipient is online
-        if (!onlineUsers.has(targetUserId)) {
+        const isOnline = onlineUsers.has(targetUserId) && (onlineUsers.get(targetUserId)?.size ?? 0) > 0;
+        if (!isOnline) {
           socket.emit('call_failed', {
             callId,
-            reason: 'User is currently offline.',
+            reason: 'Recipient is currently offline.',
           });
           return;
         }
 
-        // Check if recipient is already in a call
-        if (activeCalls.has(targetUserId)) {
-          socket.emit('call_failed', {
-            callId,
-            reason: 'User is currently busy on another call.',
-          });
-          return;
-        }
+        // Reset any existing stale call for caller
+        activeCalls.delete(userId);
 
         // Register active call for caller
-        activeCalls.set(userId, { callId, peerId: targetUserId, callType });
+        activeCalls.set(userId, { callId, peerId: targetUserId, callType, startedAt: Date.now() });
 
         // Forward incoming call offer to recipient's room
         io.to(`user:${targetUserId}`).emit('incoming_call', {
@@ -277,18 +287,23 @@ export const setupChatSocket = (io: SocketIOServer) => {
       answer: any;
       callId: string;
     }) => {
-      const { toUserId, answer, callId } = data;
-      // Register active call for callee
-      const callerCall = activeCalls.get(toUserId);
-      const callType = callerCall ? callerCall.callType : 'video';
-      activeCalls.set(userId, { callId, peerId: toUserId, callType });
+      try {
+        const { toUserId, answer, callId } = data;
+        const callerCall = activeCalls.get(toUserId);
+        const callType = callerCall ? callerCall.callType : 'audio';
 
-      // Forward answer to caller's room
-      io.to(`user:${toUserId}`).emit('call_answered', {
-        callId,
-        answer,
-        fromUser: socket.user,
-      });
+        // Register active call for callee
+        activeCalls.set(userId, { callId, peerId: toUserId, callType, startedAt: Date.now() });
+
+        // Forward answer to caller's room
+        io.to(`user:${toUserId}`).emit('call_answered', {
+          callId,
+          answer,
+          fromUser: socket.user,
+        });
+      } catch (err) {
+        console.error('Socket answer_call error:', err);
+      }
     });
 
     // Reject / Decline Call
@@ -297,14 +312,18 @@ export const setupChatSocket = (io: SocketIOServer) => {
       callId: string;
       reason?: string;
     }) => {
-      const { toUserId, callId, reason } = data;
-      activeCalls.delete(toUserId);
-      activeCalls.delete(userId);
+      try {
+        const { toUserId, callId, reason } = data;
+        activeCalls.delete(toUserId);
+        activeCalls.delete(userId);
 
-      io.to(`user:${toUserId}`).emit('call_rejected', {
-        callId,
-        reason: reason || 'Call was declined.',
-      });
+        io.to(`user:${toUserId}`).emit('call_rejected', {
+          callId,
+          reason: reason || 'Call was declined.',
+        });
+      } catch (err) {
+        console.error('Socket reject_call error:', err);
+      }
     });
 
     // ICE Candidate Exchange
@@ -313,12 +332,16 @@ export const setupChatSocket = (io: SocketIOServer) => {
       candidate: any;
       callId: string;
     }) => {
-      const { targetUserId, candidate, callId } = data;
-      io.to(`user:${targetUserId}`).emit('ice_candidate', {
-        candidate,
-        callId,
-        fromUserId: userId,
-      });
+      try {
+        const { targetUserId, candidate, callId } = data;
+        io.to(`user:${targetUserId}`).emit('ice_candidate', {
+          candidate,
+          callId,
+          fromUserId: userId,
+        });
+      } catch (err) {
+        console.error('Socket ice_candidate error:', err);
+      }
     });
 
     // End Call
@@ -326,18 +349,22 @@ export const setupChatSocket = (io: SocketIOServer) => {
       targetUserId: string;
       callId: string;
     }) => {
-      const { targetUserId, callId } = data;
-      activeCalls.delete(userId);
-      activeCalls.delete(targetUserId);
+      try {
+        const { targetUserId, callId } = data;
+        activeCalls.delete(userId);
+        activeCalls.delete(targetUserId);
 
-      io.to(`user:${targetUserId}`).emit('call_ended', {
-        callId,
-        reason: 'Call ended by user.',
-      });
-      socket.emit('call_ended', {
-        callId,
-        reason: 'Call ended.',
-      });
+        io.to(`user:${targetUserId}`).emit('call_ended', {
+          callId,
+          reason: 'Call ended.',
+        });
+        socket.emit('call_ended', {
+          callId,
+          reason: 'Call ended.',
+        });
+      } catch (err) {
+        console.error('Socket end_call error:', err);
+      }
     });
 
     // Disconnect

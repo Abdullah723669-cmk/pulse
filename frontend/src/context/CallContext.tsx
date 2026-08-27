@@ -49,26 +49,30 @@ const ICE_SERVERS: RTCConfiguration = {
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
   ],
 };
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
 
-// Web Audio Ringtone Synthesizer (Zero asset dependency)
+// Web Audio Ringtone Synthesizer (Zero external asset dependency)
 class RingtoneManager {
   private audioCtx: AudioContext | null = null;
   private intervalId: number | null = null;
 
   private initCtx() {
-    if (!this.audioCtx || this.audioCtx.state === 'closed') {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      if (AudioContextClass) {
-        this.audioCtx = new AudioContextClass();
+    try {
+      if (!this.audioCtx || this.audioCtx.state === 'closed') {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass) {
+          this.audioCtx = new AudioContextClass();
+        }
       }
-    }
-    if (this.audioCtx && this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume().catch(() => {});
-    }
+      if (this.audioCtx && this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume().catch(() => {});
+      }
+    } catch {}
   }
 
   // Ringing for outgoing call
@@ -162,7 +166,7 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const { socket } = useSocket();
 
   const [callState, setCallState] = useState<CallState>('idle');
-  const [callType, setCallType] = useState<CallType>('video');
+  const [callType, setCallType] = useState<CallType>('audio');
   const [callId, setCallId] = useState<string | null>(null);
   const [callerUser, setCallerUser] = useState<User | null>(null);
   const [recipientUser, setRecipientUser] = useState<User | null>(null);
@@ -181,6 +185,8 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenTrackRef = useRef<MediaStreamTrack | null>(null);
   const timerRef = useRef<number | null>(null);
+  const ringingTimeoutRef = useRef<number | null>(null);
+  const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
 
   // Clean up streams & peer connection
   const cleanupCall = useCallback(() => {
@@ -190,6 +196,13 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+
+    if (ringingTimeoutRef.current) {
+      clearTimeout(ringingTimeoutRef.current);
+      ringingTimeoutRef.current = null;
+    }
+
+    pendingIceCandidatesRef.current = [];
 
     if (screenTrackRef.current) {
       screenTrackRef.current.stop();
@@ -204,7 +217,10 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (peerConnectionRef.current) {
       peerConnectionRef.current.onicecandidate = null;
       peerConnectionRef.current.ontrack = null;
-      peerConnectionRef.current.close();
+      peerConnectionRef.current.onconnectionstatechange = null;
+      try {
+        peerConnectionRef.current.close();
+      } catch {}
       peerConnectionRef.current = null;
     }
 
@@ -219,6 +235,21 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsVideoOff(false);
     setIsScreenSharing(false);
     setCallDuration(0);
+  }, []);
+
+  // Flush queued ICE candidates after setRemoteDescription
+  const drainPendingIceCandidates = useCallback(async (pc: RTCPeerConnection) => {
+    if (!pc.remoteDescription) return;
+    while (pendingIceCandidatesRef.current.length > 0) {
+      const candidate = pendingIceCandidatesRef.current.shift();
+      if (candidate) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (err) {
+          console.warn('Error adding queued ICE candidate:', err);
+        }
+      }
+    }
   }, []);
 
   // Initialize WebRTC PeerConnection
@@ -248,6 +279,10 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       pc.onconnectionstatechange = () => {
         if (pc.connectionState === 'connected') {
           ringtone.stop();
+          if (ringingTimeoutRef.current) {
+            clearTimeout(ringingTimeoutRef.current);
+            ringingTimeoutRef.current = null;
+          }
           setCallState('connected');
           // Start call duration timer
           if (!timerRef.current) {
@@ -269,33 +304,56 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     [socket, cleanupCall]
   );
 
-  // Acquire Camera / Microphone
+  // Acquire Camera / Microphone with multi-level fallback
   const getMediaStream = async (type: CallType): Promise<MediaStream> => {
-    const constraints: MediaStreamConstraints = {
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
-      video:
-        type === 'video'
-          ? {
-              width: { ideal: 1280 },
-              height: { ideal: 720 },
-              facingMode: 'user',
-            }
-          : false,
-    };
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error('WebRTC / media devices are not supported on this browser or requires HTTPS.');
+    }
 
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    localStreamRef.current = stream;
-    setLocalStream(stream);
-    return stream;
+    try {
+      // First attempt: optimal constraints
+      const constraints: MediaStreamConstraints = {
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+        video:
+          type === 'video'
+            ? {
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+                facingMode: 'user',
+              }
+            : false,
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      localStreamRef.current = stream;
+      setLocalStream(stream);
+      return stream;
+    } catch (err: any) {
+      console.warn('Initial getUserMedia failed, attempting basic constraint fallback:', err);
+      // Fallback: minimal constraints
+      const basicConstraints: MediaStreamConstraints = {
+        audio: true,
+        video: type === 'video' ? true : false,
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(basicConstraints);
+      localStreamRef.current = stream;
+      setLocalStream(stream);
+      return stream;
+    }
   };
 
   // Start Call (Outgoing)
   const startCall = async (targetUser: User, type: CallType) => {
-    if (!socket || !user) return;
+    if (!socket) {
+      alert('Real-time connection is reconnecting. Please wait a moment and try again.');
+      return;
+    }
+    if (!user) return;
+
     setErrorMessage(null);
 
     try {
@@ -306,6 +364,13 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setRecipientUser(targetUser);
       setCallState('calling');
       ringtone.startOutgoingRingtone();
+
+      // Ringing timeout (40 seconds)
+      ringingTimeoutRef.current = window.setTimeout(() => {
+        ringtone.stop();
+        setErrorMessage('No answer.');
+        setTimeout(() => cleanupCall(), 3000);
+      }, 40000);
 
       const stream = await getMediaStream(type);
       const pc = createPeerConnection(targetUser.id, newCallId);
@@ -331,8 +396,17 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       });
     } catch (err: any) {
       console.error('Failed to start call:', err);
-      setErrorMessage(err.message || 'Failed to access camera/microphone.');
-      cleanupCall();
+      ringtone.stop();
+      setErrorMessage(
+        err.name === 'NotAllowedError'
+          ? 'Microphone permission was denied. Please allow microphone access in your browser settings.'
+          : err.name === 'NotFoundError'
+          ? 'No microphone / camera device found on this system.'
+          : err.message || 'Failed to initialize audio call.'
+      );
+      setTimeout(() => {
+        cleanupCall();
+      }, 4000);
     }
   };
 
@@ -360,6 +434,8 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       });
 
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      await drainPendingIceCandidates(pc);
+
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
@@ -378,8 +454,8 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     } catch (err: any) {
       console.error('Failed to answer call:', err);
-      setErrorMessage('Failed to answer call.');
-      cleanupCall();
+      setErrorMessage(err.message || 'Failed to answer call.');
+      setTimeout(() => cleanupCall(), 3000);
     }
   };
 
@@ -479,7 +555,7 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!socket) return;
 
     // Incoming Call
-    socket.on('incoming_call', (data: IncomingCallData) => {
+    const handleIncomingCall = (data: IncomingCallData) => {
       // If already in a call, auto-reject with busy
       if (callState !== 'idle') {
         socket.emit('reject_call', {
@@ -493,65 +569,91 @@ export const CallProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setIncomingCall(data);
       setCallType(data.callType);
       ringtone.startIncomingRingtone();
-    });
+    };
 
     // Call Answered by Recipient
-    socket.on('call_answered', async (data: { callId: string; answer: RTCSessionDescriptionInit; fromUser: User }) => {
+    const handleCallAnswered = async (data: { callId: string; answer: RTCSessionDescriptionInit; fromUser: User }) => {
       ringtone.stop();
+      if (ringingTimeoutRef.current) {
+        clearTimeout(ringingTimeoutRef.current);
+        ringingTimeoutRef.current = null;
+      }
+
       if (peerConnectionRef.current) {
         try {
           await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.answer));
+          await drainPendingIceCandidates(peerConnectionRef.current);
           setCallState('connected');
         } catch (err) {
           console.error('Failed to set remote answer:', err);
         }
       }
-    });
+    };
 
     // Call Rejected
-    socket.on('call_rejected', (data: { callId: string; reason: string }) => {
+    const handleCallRejected = (data: { callId: string; reason: string }) => {
       ringtone.stop();
+      if (ringingTimeoutRef.current) {
+        clearTimeout(ringingTimeoutRef.current);
+        ringingTimeoutRef.current = null;
+      }
       setErrorMessage(data.reason || 'User declined the call.');
       setTimeout(() => {
         cleanupCall();
-      }, 2500);
-    });
+      }, 3000);
+    };
 
     // Call Failed
-    socket.on('call_failed', (data: { callId: string; reason: string }) => {
+    const handleCallFailed = (data: { callId: string; reason: string }) => {
       ringtone.stop();
+      if (ringingTimeoutRef.current) {
+        clearTimeout(ringingTimeoutRef.current);
+        ringingTimeoutRef.current = null;
+      }
       setErrorMessage(data.reason || 'Call could not be connected.');
       setTimeout(() => {
         cleanupCall();
-      }, 2500);
-    });
+      }, 3000);
+    };
 
     // ICE Candidate from Peer
-    socket.on('ice_candidate', async (data: { candidate: RTCIceCandidateInit; callId: string }) => {
-      if (peerConnectionRef.current && data.candidate) {
+    const handleIceCandidate = async (data: { candidate: RTCIceCandidateInit; callId: string }) => {
+      if (!data.candidate) return;
+      const pc = peerConnectionRef.current;
+      if (pc && pc.remoteDescription) {
         try {
-          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
+          await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
         } catch (err) {
           console.error('Error adding ICE candidate:', err);
         }
+      } else {
+        // Queue until remote description is set
+        pendingIceCandidatesRef.current.push(data.candidate);
       }
-    });
+    };
 
     // Call Ended
-    socket.on('call_ended', () => {
+    const handleCallEnded = () => {
       ringtone.stop();
       cleanupCall();
-    });
+    };
+
+    socket.on('incoming_call', handleIncomingCall);
+    socket.on('call_answered', handleCallAnswered);
+    socket.on('call_rejected', handleCallRejected);
+    socket.on('call_failed', handleCallFailed);
+    socket.on('ice_candidate', handleIceCandidate);
+    socket.on('call_ended', handleCallEnded);
 
     return () => {
-      socket.off('incoming_call');
-      socket.off('call_answered');
-      socket.off('call_rejected');
-      socket.off('call_failed');
-      socket.off('ice_candidate');
-      socket.off('call_ended');
+      socket.off('incoming_call', handleIncomingCall);
+      socket.off('call_answered', handleCallAnswered);
+      socket.off('call_rejected', handleCallRejected);
+      socket.off('call_failed', handleCallFailed);
+      socket.off('ice_candidate', handleIceCandidate);
+      socket.off('call_ended', handleCallEnded);
     };
-  }, [socket, callState, cleanupCall]);
+  }, [socket, callState, cleanupCall, drainPendingIceCandidates]);
 
   return (
     <CallContext.Provider

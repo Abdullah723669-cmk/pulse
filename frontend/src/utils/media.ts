@@ -1,8 +1,8 @@
 import { API_BASE_URL } from '../api/client';
 import { MediaItem } from '../types';
 
-// Helper to ensure media URLs (images, videos, attachments) point to the valid absolute URL
-// whether they are absolute CDN URLs, relative upload paths, or data URLs.
+// Helper to ensure media URLs (images, videos, attachments) point to a valid absolute URL.
+// Handles Cloudinary CDN URLs, legacy /uploads/ paths, data URLs, and blob URLs.
 
 export const getMediaUrl = (url?: string | null): string => {
   if (!url || typeof url !== 'string') return '';
@@ -14,20 +14,19 @@ export const getMediaUrl = (url?: string | null): string => {
     return trimmed;
   }
 
-  const base = (API_BASE_URL || 'https://pulse-hbu2.onrender.com').replace(/\/+$/, '');
+  // Already an absolute URL — Cloudinary CDN, or any https/http URL
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
 
-  // If the media is an upload on the backend (/uploads/...), always route to active backend API server
+  // Legacy fallback: relative /uploads/ paths served from the backend
+  const base = (API_BASE_URL || 'https://pulse-hbu2.onrender.com').replace(/\/+$/, '');
   if (trimmed.includes('/uploads/')) {
     const uploadPath = trimmed.substring(trimmed.indexOf('/uploads/'));
     return `${base}${uploadPath}`;
   }
 
-  // If already absolute external URL (e.g. Unsplash, CDN, Google Storage)
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    return trimmed;
-  }
-
-  // Relative path uploaded to backend
+  // Other relative path
   const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
   return `${base}${cleanPath}`;
 };
@@ -47,7 +46,9 @@ export const normalizeMediaItem = (item: any): MediaItem | null => {
     const isVideo =
       item.type?.toLowerCase() === 'video' ||
       /\.(mp4|webm|ogg|mov|m4v|mkv)$/i.test(rawUrl) ||
-      (typeof item.mimetype === 'string' && item.mimetype.startsWith('video/'));
+      (typeof item.mimetype === 'string' && item.mimetype.startsWith('video/')) ||
+      // Cloudinary video resource type marker
+      (typeof rawUrl === 'string' && rawUrl.includes('/video/upload/'));
 
     return {
       url: rawUrl,

@@ -1,16 +1,8 @@
 import { Request, Response } from 'express';
 
-const getFileFullUrl = (req: Request, filename: string): string => {
-  const forwardedProto = req.headers['x-forwarded-proto'];
-  let protocol = 'https';
-  if (forwardedProto) {
-    protocol = (Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto).split(',')[0].trim();
-  } else if (req.protocol) {
-    protocol = req.protocol;
-  }
-  const host = req.get('host') || 'pulse-hbu2.onrender.com';
-  return `${protocol}://${host}/uploads/${filename}`;
-};
+// When using CloudinaryStorage via multer, the file object has Cloudinary-specific fields:
+// file.path  → the Cloudinary secure_url (https://res.cloudinary.com/...)
+// file.filename → the Cloudinary public_id
 
 export const uploadMedia = (req: Request, res: Response): void => {
   try {
@@ -19,17 +11,18 @@ export const uploadMedia = (req: Request, res: Response): void => {
       return;
     }
 
-    const file = req.file;
+    const file = req.file as any;
     const isVideo = file.mimetype.startsWith('video/');
     const isImage = file.mimetype.startsWith('image/');
-
     const type = isVideo ? 'video' : isImage ? 'image' : 'file';
-    const url = getFileFullUrl(req, file.filename);
+
+    // Cloudinary secure URL is on file.path when using multer-storage-cloudinary
+    const url: string = file.path || file.secure_url || '';
 
     res.json({
       url,
       type,
-      filename: file.filename,
+      filename: file.filename || file.public_id || '',
       originalName: file.originalname,
       size: file.size,
       mimetype: file.mimetype,
@@ -42,7 +35,7 @@ export const uploadMedia = (req: Request, res: Response): void => {
 
 export const uploadMultipleMedia = (req: Request, res: Response): void => {
   try {
-    const files = req.files as Express.Multer.File[];
+    const files = req.files as any[];
     if (!files || files.length === 0) {
       res.status(400).json({ message: 'No files uploaded.' });
       return;
@@ -52,11 +45,12 @@ export const uploadMultipleMedia = (req: Request, res: Response): void => {
       const isVideo = file.mimetype.startsWith('video/');
       const isImage = file.mimetype.startsWith('image/');
       const type = isVideo ? 'video' : isImage ? 'image' : 'file';
+      const url: string = file.path || file.secure_url || '';
 
       return {
-        url: getFileFullUrl(req, file.filename),
+        url,
         type,
-        filename: file.filename,
+        filename: file.filename || file.public_id || '',
         originalName: file.originalname,
         size: file.size,
         mimetype: file.mimetype,

@@ -298,20 +298,36 @@ export const getFollowing = async (req: AuthRequest, res: Response): Promise<voi
 
 export const searchUsers = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const query = (req.query.q as string || '').toLowerCase().trim();
+    const rawQuery = ((req.query.q as string) || '').trim();
     const currentUserId = req.user?.id;
 
-    if (!query) {
+    if (!rawQuery) {
       res.json({ users: [] });
       return;
     }
 
+    const cleanQuery = rawQuery.replace(/^#+/, '').trim();
+    const terms = [cleanQuery];
+    // Deconstruct camelCase or PascalCase tags into separate terms (e.g. FullStackDev -> Full, Stack, Dev)
+    const words = cleanQuery.replace(/([a-z])([A-Z])/g, '$1 $2').split(/[\s_-]+/).filter((w) => w.length >= 3);
+    for (const w of words) {
+      if (!terms.some((t) => t.toLowerCase() === w.toLowerCase())) {
+        terms.push(w);
+      }
+    }
+
+    const orConditions: any[] = [];
+    for (const term of terms) {
+      orConditions.push(
+        { username: { contains: term, mode: 'insensitive' } },
+        { name: { contains: term, mode: 'insensitive' } },
+        { bio: { contains: term, mode: 'insensitive' } }
+      );
+    }
+
     const users = await prisma.user.findMany({
       where: {
-        OR: [
-          { username: { contains: query, mode: 'insensitive' } },
-          { name: { contains: query, mode: 'insensitive' } },
-        ],
+        OR: orConditions,
       },
       take: 20,
       select: {

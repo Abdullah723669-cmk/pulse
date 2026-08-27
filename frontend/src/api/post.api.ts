@@ -34,6 +34,27 @@ export const postApi = {
     }
   },
 
+  searchPosts: async (query: string): Promise<{ posts: Post[] }> => {
+    try {
+      const res = await apiClient.get<{ posts: Post[] }>(`/api/posts/search?q=${encodeURIComponent(query)}`);
+      if (res.data && Array.isArray(res.data.posts)) {
+        return res.data;
+      }
+      throw new Error('No data');
+    } catch {
+      const clean = query.toLowerCase().replace(/^#+/, '').trim();
+      if (!clean) return { posts: DEMO_POSTS };
+      const words = clean.replace(/([a-z])([A-Z])/g, '$1 $2').split(/[\s_-]+/).filter((w) => w.length >= 3);
+      const searchTerms = [query.toLowerCase(), clean, ...words];
+
+      const matched = DEMO_POSTS.filter((p) => {
+        const text = `${p.content} ${p.author.name} ${p.author.username}`.toLowerCase();
+        return searchTerms.some((term) => text.includes(term.toLowerCase()));
+      });
+      return { posts: matched };
+    }
+  },
+
   // WRITES — must always persist to Neon, NO demo fallback
   createPost: async (data: { content: string; media: MediaItem[] }): Promise<{ message: string; post: Post }> => {
     const res = await apiClient.post<{ message: string; post: Post }>('/api/posts', data);

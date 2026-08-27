@@ -122,7 +122,7 @@ export const DEMO_POSTS: Post[] = [
   },
   {
     id: 'demo-post-2',
-    content: 'Morning light in Tokyo ☀️ Captured these architectural frames during my sunrise walk in Shibuya. Minimalism is about removing everything that distracts from the core essence.',
+    content: 'Morning light in Tokyo ☀️ Captured these architectural frames during my sunrise walk in Shibuya. Minimalism is about removing everything that distracts from the core essence. #DesignSystems #Architecture #Minimalism',
     media: [
       {
         url: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?w=1200&auto=format&fit=crop&q=80',
@@ -149,7 +149,7 @@ export const DEMO_POSTS: Post[] = [
   },
   {
     id: 'demo-post-3',
-    content: 'Quick drone flight over the misty mountain ridge earlier today. The dynamic range on this sensor is unreal! Check out the clip below: 🚁🏔️',
+    content: 'Quick drone flight over the misty mountain ridge earlier today. The dynamic range on this sensor is unreal! Check out the clip below: 🚁🏔️ #Cinematography #Drone #Filmmaking',
     media: [
       {
         url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
@@ -173,7 +173,7 @@ export const DEMO_POSTS: Post[] = [
   },
   {
     id: 'demo-post-4',
-    content: 'New 3D loop experiment rendered in Blender Cycles. Playing with volumetric lighting and iridescent materials. ✨🔮',
+    content: 'New 3D loop experiment rendered in Blender Cycles. Playing with volumetric lighting and iridescent materials. ✨🔮 #GenerativeArt #Blender #3DArt',
     media: [
       {
         url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',

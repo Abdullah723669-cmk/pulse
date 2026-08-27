@@ -213,7 +213,22 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onDelete }) => {
         {/* Content text */}
         {post.content && (
           <p className="text-slate-200 text-[15px] leading-relaxed mb-3.5 whitespace-pre-line break-words">
-            {post.content}
+            {post.content.split(/(\s+)/).map((part, index) => {
+              if (part.startsWith('#') && part.length > 1) {
+                const tag = part.trim();
+                return (
+                  <Link
+                    key={index}
+                    to={`/explore?q=${encodeURIComponent(tag)}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-brand-400 font-semibold hover:text-brand-300 hover:underline transition-colors mr-0.5"
+                  >
+                    {part}
+                  </Link>
+                );
+              }
+              return part;
+            })}
           </p>
         )}
 

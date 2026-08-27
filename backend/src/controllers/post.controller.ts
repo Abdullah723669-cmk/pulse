@@ -488,3 +488,101 @@ export const deletePost = async (req: AuthRequest, res: Response): Promise<void>
     res.status(500).json({ message: 'Error deleting post.', error: error.message });
   }
 };
+
+export const searchPosts = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const rawQuery = ((req.query.q as string) || '').trim();
+    const currentUserId = req.user?.id;
+
+    if (!rawQuery) {
+      res.json({ posts: [] });
+      return;
+    }
+
+    const cleanQuery = rawQuery.replace(/^#+/, '').trim();
+    const terms = [rawQuery, cleanQuery];
+    const words = cleanQuery.replace(/([a-z])([A-Z])/g, '$1 $2').split(/[\s_-]+/).filter((w) => w.length >= 3);
+    for (const w of words) {
+      if (!terms.some((t) => t.toLowerCase() === w.toLowerCase())) {
+        terms.push(w);
+      }
+    }
+
+    const orConditions = terms.map((term) => ({
+      content: { contains: term, mode: 'insensitive' as const },
+    }));
+
+    const posts = await prisma.post.findMany({
+      where: {
+        OR: orConditions,
+      },
+      take: 30,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            username: true,
+            avatar: true,
+            isVerified: true,
+          },
+        },
+        likes: {
+          select: {
+            userId: true,
+          },
+        },
+        comments: {
+          take: 3,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                username: true,
+                avatar: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            likes: true,
+            comments: true,
+            bookmarks: true,
+          },
+        },
+      },
+    });
+
+    const formattedPosts = posts.map((post) => {
+      const media = parseAndNormalizeMedia(post.mediaUrls);
+      return {
+        id: post.id,
+        content: post.content,
+        media,
+        createdAt: post.createdAt,
+        updatedAt: post.updatedAt,
+        author: post.author,
+        likesCount: post._count.likes,
+        commentsCount: post._count.comments,
+        bookmarksCount: post._count.bookmarks,
+        isLiked: currentUserId ? post.likes.some((l) => l.userId === currentUserId) : false,
+        recentComments: post.comments.map((c) => ({
+          id: c.id,
+          content: c.content,
+          createdAt: c.createdAt,
+          user: c.user,
+        })),
+      };
+    });
+
+    res.json({ posts: formattedPosts });
+  } catch (error: any) {
+    console.error('Search posts error:', error);
+    res.status(500).json({ message: 'Error searching posts.', error: error.message });
+  }
+};
+

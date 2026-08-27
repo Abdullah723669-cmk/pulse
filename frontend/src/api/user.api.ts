@@ -53,9 +53,18 @@ export const userApi = {
     try {
       const res = await apiClient.get<{ users: User[] }>(`/api/users/search?q=${encodeURIComponent(query)}`);
       if (res.data && Array.isArray(res.data.users)) return res.data;
-      return { users: [] };
+      throw new Error('No data');
     } catch {
-      return { users: [] };
+      const clean = query.toLowerCase().replace(/^#+/, '').trim();
+      if (!clean) return { users: DEMO_USERS };
+      const words = clean.replace(/([a-z])([A-Z])/g, '$1 $2').split(/[\s_-]+/).filter((w) => w.length >= 3);
+      const searchTerms = [clean, ...words];
+
+      const matched = DEMO_USERS.filter((u) => {
+        const text = `${u.name} ${u.username} ${u.bio || ''}`.toLowerCase();
+        return searchTerms.some((term) => text.includes(term.toLowerCase()));
+      });
+      return { users: matched };
     }
   },
 

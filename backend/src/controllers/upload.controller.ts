@@ -1,7 +1,13 @@
 import { Request, Response } from 'express';
 
 const getFileFullUrl = (req: Request, filename: string): string => {
-  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+  const forwardedProto = req.headers['x-forwarded-proto'];
+  let protocol = 'https';
+  if (forwardedProto) {
+    protocol = (Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto).split(',')[0].trim();
+  } else if (req.protocol) {
+    protocol = req.protocol;
+  }
   const host = req.get('host') || 'pulse-hbu2.onrender.com';
   return `${protocol}://${host}/uploads/${filename}`;
 };

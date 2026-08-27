@@ -17,6 +17,9 @@ interface AuthenticatedSocket extends Socket {
 // Track online users: userId -> Set of socket IDs
 const onlineUsers = new Map<string, Set<string>>();
 
+// Track active calls: userId -> { callId: string, peerId: string, callType: 'audio' | 'video' }
+const activeCalls = new Map<string, { callId: string; peerId: string; callType: 'audio' | 'video' }>();
+
 export const setupChatSocket = (io: SocketIOServer) => {
   // Authentication middleware for Socket.io
   io.use(async (socket: AuthenticatedSocket, next) => {
@@ -63,7 +66,7 @@ export const setupChatSocket = (io: SocketIOServer) => {
     }
     onlineUsers.get(userId)!.add(socket.id);
 
-    // Join personal room for private notifications
+    // Join personal room for private notifications & WebRTC signaling
     socket.join(`user:${userId}`);
 
     // Broadcast user online status
@@ -210,8 +213,146 @@ export const setupChatSocket = (io: SocketIOServer) => {
       }
     });
 
+    // ==========================================
+    // WebRTC 1-on-1 Audio & Video Call Signaling
+    // ==========================================
+
+    // Initiate Call (Offer)
+    socket.on('call_user', async (data: {
+      targetUserId: string;
+      offer: any;
+      callType: 'audio' | 'video';
+      callId: string;
+    }) => {
+      try {
+        const { targetUserId, offer, callType, callId } = data;
+
+        // Check follower permission
+        const permission = await checkCanChat(userId, targetUserId);
+        if (!permission.canChat) {
+          socket.emit('call_failed', {
+            callId,
+            reason: 'Cannot call this user due to follower restrictions.',
+          });
+          return;
+        }
+
+        // Check if recipient is online
+        if (!onlineUsers.has(targetUserId)) {
+          socket.emit('call_failed', {
+            callId,
+            reason: 'User is currently offline.',
+          });
+          return;
+        }
+
+        // Check if recipient is already in a call
+        if (activeCalls.has(targetUserId)) {
+          socket.emit('call_failed', {
+            callId,
+            reason: 'User is currently busy on another call.',
+          });
+          return;
+        }
+
+        // Register active call for caller
+        activeCalls.set(userId, { callId, peerId: targetUserId, callType });
+
+        // Forward incoming call offer to recipient's room
+        io.to(`user:${targetUserId}`).emit('incoming_call', {
+          callId,
+          fromUser: socket.user,
+          offer,
+          callType,
+        });
+      } catch (err: any) {
+        console.error('Socket call_user error:', err);
+        socket.emit('call_failed', { callId: data.callId, reason: 'Failed to initiate call.' });
+      }
+    });
+
+    // Answer Call (Answer)
+    socket.on('answer_call', (data: {
+      toUserId: string;
+      answer: any;
+      callId: string;
+    }) => {
+      const { toUserId, answer, callId } = data;
+      // Register active call for callee
+      const callerCall = activeCalls.get(toUserId);
+      const callType = callerCall ? callerCall.callType : 'video';
+      activeCalls.set(userId, { callId, peerId: toUserId, callType });
+
+      // Forward answer to caller's room
+      io.to(`user:${toUserId}`).emit('call_answered', {
+        callId,
+        answer,
+        fromUser: socket.user,
+      });
+    });
+
+    // Reject / Decline Call
+    socket.on('reject_call', (data: {
+      toUserId: string;
+      callId: string;
+      reason?: string;
+    }) => {
+      const { toUserId, callId, reason } = data;
+      activeCalls.delete(toUserId);
+      activeCalls.delete(userId);
+
+      io.to(`user:${toUserId}`).emit('call_rejected', {
+        callId,
+        reason: reason || 'Call was declined.',
+      });
+    });
+
+    // ICE Candidate Exchange
+    socket.on('ice_candidate', (data: {
+      targetUserId: string;
+      candidate: any;
+      callId: string;
+    }) => {
+      const { targetUserId, candidate, callId } = data;
+      io.to(`user:${targetUserId}`).emit('ice_candidate', {
+        candidate,
+        callId,
+        fromUserId: userId,
+      });
+    });
+
+    // End Call
+    socket.on('end_call', (data: {
+      targetUserId: string;
+      callId: string;
+    }) => {
+      const { targetUserId, callId } = data;
+      activeCalls.delete(userId);
+      activeCalls.delete(targetUserId);
+
+      io.to(`user:${targetUserId}`).emit('call_ended', {
+        callId,
+        reason: 'Call ended by user.',
+      });
+      socket.emit('call_ended', {
+        callId,
+        reason: 'Call ended.',
+      });
+    });
+
     // Disconnect
     socket.on('disconnect', () => {
+      // If user was in an active call, notify the other party
+      const currentCall = activeCalls.get(userId);
+      if (currentCall) {
+        io.to(`user:${currentCall.peerId}`).emit('call_ended', {
+          callId: currentCall.callId,
+          reason: 'User disconnected.',
+        });
+        activeCalls.delete(userId);
+        activeCalls.delete(currentCall.peerId);
+      }
+
       const userSockets = onlineUsers.get(userId);
       if (userSockets) {
         userSockets.delete(socket.id);

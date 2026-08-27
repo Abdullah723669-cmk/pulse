@@ -17,7 +17,7 @@ export const FeedPage: React.FC = () => {
   const fetchFeed = async (pageNum = 1, append = false) => {
     try {
       if (!append) setIsLoading(true);
-      const data = await postApi.getFeed(pageNum, 15);
+      const data = await postApi.getFeed(pageNum, 15, activeTab);
       if (append) {
         setPosts((prev) => [...prev, ...data.posts]);
       } else {

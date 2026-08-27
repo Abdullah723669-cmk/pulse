@@ -31,9 +31,13 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({ onPostCreated })
     setIsUploading(true);
     try {
       const uploaded = await uploadApi.uploadMultiple(Array.from(files));
-      setMediaList((prev) => [...prev, ...uploaded]);
+      if (uploaded && uploaded.length > 0) {
+        setMediaList((prev) => [...prev, ...uploaded]);
+      } else {
+        setError('No media was uploaded. Please try again.');
+      }
     } catch (err: any) {
-      setError('Failed to upload image(s). Please try again.');
+      setError(err.response?.data?.message || err.message || 'Failed to upload image(s). Please try again.');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -53,9 +57,13 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({ onPostCreated })
     setIsUploading(true);
     try {
       const uploaded = await uploadApi.uploadSingle(file);
-      setMediaList((prev) => [...prev, uploaded]);
+      if (uploaded && uploaded.url) {
+        setMediaList((prev) => [...prev, uploaded]);
+      } else {
+        setError('Failed to upload video. Please try again.');
+      }
     } catch (err: any) {
-      setError('Failed to upload video. Please try again.');
+      setError(err.response?.data?.message || err.message || 'Failed to upload video. Please try again.');
     } finally {
       setIsUploading(false);
       if (videoInputRef.current) videoInputRef.current.value = '';

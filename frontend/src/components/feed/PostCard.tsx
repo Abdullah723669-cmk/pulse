@@ -18,7 +18,7 @@ import { useChat } from '../../context/ChatContext';
 import { postApi } from '../../api/post.api';
 import { VideoPlayer } from './VideoPlayer';
 import { MediaLightbox } from '../ui/MediaLightbox';
-import { getMediaUrl } from '../../utils/media';
+import { getMediaUrl, normalizeMediaList } from '../../utils/media';
 
 interface PostCardProps {
   post: Post;
@@ -218,55 +218,65 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onDelete }) => {
         )}
 
         {/* Media rendering */}
-        {post.media && post.media.length > 0 && (
-          <div className="mb-4">
-            {post.media.map((item, idx) => {
-              if (item.type === 'video') {
-                return (
-                  <div key={idx} className="mb-2">
-                    <VideoPlayer src={getMediaUrl(item.url)} poster={getMediaUrl(item.thumbnail)} />
-                  </div>
-                );
-              }
-              return null;
-            })}
+        {(() => {
+          const mediaList = normalizeMediaList(post.media);
+          if (mediaList.length === 0) return null;
 
-            {/* Images Grid */}
-            {post.media.filter((m) => m.type === 'image').length > 0 && (
-              <div
-                className={`grid gap-2 rounded-2xl overflow-hidden ${
-                  post.media.filter((m) => m.type === 'image').length === 1
-                    ? 'grid-cols-1'
-                    : post.media.filter((m) => m.type === 'image').length === 2
-                    ? 'grid-cols-2'
-                    : 'grid-cols-2 sm:grid-cols-3'
-                }`}
-              >
-                {post.media
-                  .filter((m) => m.type === 'image')
-                  .map((img, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => setLightboxIndex(idx)}
-                      className="cursor-pointer overflow-hidden rounded-xl bg-slate-900 border border-slate-800/80 aspect-video sm:aspect-square relative group"
-                    >
-                      <img
-                        src={getMediaUrl(img.url)}
-                        alt="Post attachment"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
-                      <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <span className="text-white text-xs font-semibold px-3 py-1 rounded-full bg-black/60 backdrop-blur-sm">
-                          Zoom
-                        </span>
+          const videoItems = mediaList.filter((m) => m.type === 'video');
+          const imageItems = mediaList.filter((m) => m.type === 'image');
+
+          return (
+            <div className="mb-4">
+              {/* Videos */}
+              {videoItems.map((item, idx) => (
+                <div key={idx} className="mb-2">
+                  <VideoPlayer src={getMediaUrl(item.url)} poster={getMediaUrl(item.thumbnail)} />
+                </div>
+              ))}
+
+              {/* Images Grid */}
+              {imageItems.length > 0 && (
+                <div
+                  className={`grid gap-2 rounded-2xl overflow-hidden ${
+                    imageItems.length === 1
+                      ? 'grid-cols-1'
+                      : imageItems.length === 2
+                      ? 'grid-cols-2'
+                      : 'grid-cols-2 sm:grid-cols-3'
+                  }`}
+                >
+                  {imageItems.map((img, idx) => {
+                    const originalIdx = mediaList.findIndex((m) => m.url === img.url);
+                    return (
+                      <div
+                        key={idx}
+                        onClick={() => setLightboxIndex(originalIdx !== -1 ? originalIdx : idx)}
+                        className="cursor-pointer overflow-hidden rounded-xl bg-slate-900 border border-slate-800/80 aspect-video sm:aspect-square relative group"
+                      >
+                        <img
+                          src={getMediaUrl(img.url)}
+                          alt="Post attachment"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            target.onerror = null;
+                            target.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80';
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <span className="text-white text-xs font-semibold px-3 py-1 rounded-full bg-black/60 backdrop-blur-sm">
+                            Zoom
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-              </div>
-            )}
-          </div>
-        )}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Actions Row */}
         <div className="flex items-center justify-between pt-3 border-t border-slate-800/80 text-slate-400">
@@ -422,7 +432,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onDelete }) => {
       {/* Lightbox for zooming photos */}
       {lightboxIndex !== null && (
         <MediaLightbox
-          media={post.media}
+          media={normalizeMediaList(post.media)}
           currentIndex={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
           onNavigate={(newIdx) => setLightboxIndex(newIdx)}

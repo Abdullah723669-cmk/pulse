@@ -18,6 +18,9 @@ import notificationRoutes from './routes/notification.routes';
 const app = express();
 const server = http.createServer(app);
 
+// Enable trust proxy for correct protocol/host resolution behind reverse proxies (Render, Cloudflare, etc.)
+app.set('trust proxy', 1);
+
 // CORS configuration (supports localhost, Firebase app URLs, and custom domains)
 const allowedOrigins = [
   ...ENV.CLIENT_URL,
@@ -49,12 +52,17 @@ app.use(
 app.use(express.json({ limit: `${ENV.MAX_FILE_SIZE_MB}mb` }));
 app.use(express.urlencoded({ extended: true, limit: `${ENV.MAX_FILE_SIZE_MB}mb` }));
 
-// Serve uploaded files statically
-const uploadsPath = path.resolve(__dirname, '../uploads');
-if (!fs.existsSync(uploadsPath)) {
-  fs.mkdirSync(uploadsPath, { recursive: true });
-}
-app.use('/uploads', express.static(uploadsPath));
+// Serve uploaded files statically with cross-origin & range headers
+app.use(
+  '/uploads',
+  express.static(ENV.UPLOADS_DIR, {
+    setHeaders: (res) => {
+      res.set('Access-Control-Allow-Origin', '*');
+      res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.set('Accept-Ranges', 'bytes');
+    },
+  })
+);
 
 // Socket.io initialization
 const io = new SocketIOServer(server, {

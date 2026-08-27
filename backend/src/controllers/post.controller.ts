@@ -2,29 +2,78 @@ import { Response } from 'express';
 import { prisma } from '../config/prisma';
 import { AuthRequest } from '../middleware/auth.middleware';
 
+export const parseAndNormalizeMedia = (mediaUrls: string | null | undefined): any[] => {
+  if (!mediaUrls) return [];
+  let parsed: any = [];
+  try {
+    parsed = typeof mediaUrls === 'string' ? JSON.parse(mediaUrls) : mediaUrls;
+  } catch {
+    if (typeof mediaUrls === 'string' && mediaUrls.trim()) {
+      parsed = mediaUrls.split(',').map((u) => u.trim()).filter(Boolean);
+    } else {
+      parsed = [];
+    }
+  }
+
+  if (!Array.isArray(parsed)) {
+    parsed = [parsed];
+  }
+
+  return parsed
+    .map((item: any) => {
+      if (!item) return null;
+      if (typeof item === 'string') {
+        const isVideo = /\.(mp4|webm|ogg|mov|m4v|mkv)$/i.test(item);
+        return {
+          url: item,
+          type: isVideo ? 'video' : 'image',
+        };
+      }
+      if (typeof item === 'object') {
+        const url = item.url || item.src || item.path || '';
+        if (!url) return null;
+        const isVideo =
+          item.type?.toLowerCase() === 'video' ||
+          /\.(mp4|webm|ogg|mov|m4v|mkv)$/i.test(url) ||
+          item.mimetype?.startsWith('video/');
+        return {
+          ...item,
+          url,
+          type: isVideo ? 'video' : 'image',
+        };
+      }
+      return null;
+    })
+    .filter(Boolean);
+};
+
 export const getFeed = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const currentUserId = req.user?.id;
     const page = parseInt(req.query.page as string || '1', 10);
     const limit = parseInt(req.query.limit as string || '15', 10);
+    const tab = (req.query.tab as string) || 'foryou';
     const skip = (page - 1) * limit;
 
     let whereClause: any = {};
 
-    if (currentUserId) {
-      // Get following IDs
-      const following = await prisma.follow.findMany({
-        where: { followerId: currentUserId },
-        select: { followingId: true },
-      });
-      const followingIds = following.map((f) => f.followingId);
-      // Include current user and users they follow, or if empty, show all posts
-      if (followingIds.length > 0) {
+    if (tab === 'following') {
+      if (currentUserId) {
+        const following = await prisma.follow.findMany({
+          where: { followerId: currentUserId },
+          select: { followingId: true },
+        });
+        const followingIds = following.map((f) => f.followingId);
         whereClause = {
           authorId: { in: [currentUserId, ...followingIds] },
         };
+      } else {
+        // Unauthenticated users in following tab have no following list
+        res.json({ posts: [], page: 1, hasMore: false });
+        return;
       }
     }
+    // For 'foryou' tab, whereClause is empty ({}) to show all community posts
 
     // Fetch posts
     const posts = await prisma.post.findMany({
@@ -72,12 +121,7 @@ export const getFeed = async (req: AuthRequest, res: Response): Promise<void> =>
     });
 
     const formattedPosts = posts.map((post) => {
-      let media = [];
-      try {
-        media = JSON.parse(post.mediaUrls || '[]');
-      } catch {
-        media = [];
-      }
+      const media = parseAndNormalizeMedia(post.mediaUrls);
 
       return {
         id: post.id,
@@ -180,12 +224,7 @@ export const getUserPosts = async (req: AuthRequest, res: Response): Promise<voi
     }
 
     const formattedPosts = posts.map((post) => {
-      let media = [];
-      try {
-        media = JSON.parse(post.mediaUrls || '[]');
-      } catch {
-        media = [];
-      }
+      const media = parseAndNormalizeMedia(post.mediaUrls);
 
       return {
         id: post.id,
@@ -216,8 +255,9 @@ export const createPost = async (req: AuthRequest, res: Response): Promise<void>
     }
 
     const { content, media } = req.body;
+    const normalizedMedia = parseAndNormalizeMedia(media);
 
-    if ((!content || !content.trim()) && (!media || media.length === 0)) {
+    if ((!content || !content.trim()) && normalizedMedia.length === 0) {
       res.status(400).json({ message: 'Post cannot be empty. Please include text, an image, or a video.' });
       return;
     }
@@ -226,7 +266,7 @@ export const createPost = async (req: AuthRequest, res: Response): Promise<void>
       data: {
         authorId: req.user.id,
         content: (content || '').trim(),
-        mediaUrls: JSON.stringify(media || []),
+        mediaUrls: JSON.stringify(normalizedMedia),
       },
       include: {
         author: {
@@ -249,7 +289,7 @@ export const createPost = async (req: AuthRequest, res: Response): Promise<void>
       post: {
         id: newPost.id,
         content: newPost.content,
-        media: media || [],
+        media: normalizedMedia,
         createdAt: newPost.createdAt,
         updatedAt: newPost.updatedAt,
         author: newPost.author,

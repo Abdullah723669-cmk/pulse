@@ -4,10 +4,14 @@ import { DEMO_POSTS } from './demoData';
 
 export const postApi = {
   // READ — demo fallback only when backend is truly offline
-  getFeed: async (page = 1, limit = 15): Promise<{ posts: Post[]; page: number; hasMore: boolean }> => {
+  getFeed: async (
+    page = 1,
+    limit = 15,
+    tab: 'foryou' | 'following' = 'foryou'
+  ): Promise<{ posts: Post[]; page: number; hasMore: boolean }> => {
     try {
       const res = await apiClient.get<{ posts: Post[]; page: number; hasMore: boolean }>(
-        `/api/posts/feed?page=${page}&limit=${limit}`
+        `/api/posts/feed?page=${page}&limit=${limit}&tab=${tab}`
       );
       if (res.data && Array.isArray(res.data.posts)) {
         return res.data;

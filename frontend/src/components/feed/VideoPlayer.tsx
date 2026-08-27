@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Play, Pause, Volume2, VolumeX, Maximize2 } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize2, AlertCircle, ExternalLink } from 'lucide-react';
 
 interface VideoPlayerProps {
   src: string;
@@ -13,15 +13,18 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, className
   const [isMuted, setIsMuted] = useState(true); // default muted for autoplay friendly
   const [progress, setProgress] = useState(0);
   const [showControls, setShowControls] = useState(false);
+  const [hasError, setHasError] = useState(false);
 
   const togglePlay = (e?: React.MouseEvent) => {
     e?.stopPropagation();
-    if (!videoRef.current) return;
+    if (!videoRef.current || hasError) return;
     if (isPlaying) {
       videoRef.current.pause();
       setIsPlaying(false);
     } else {
-      videoRef.current.play();
+      videoRef.current.play().catch(() => {
+        setIsPlaying(false);
+      });
       setIsPlaying(true);
     }
   };
@@ -60,6 +63,29 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, className
     }
   };
 
+  if (hasError) {
+    return (
+      <div className={`rounded-2xl p-6 bg-slate-900/90 border border-slate-800 flex flex-col items-center justify-center text-center ${className}`}>
+        <AlertCircle className="w-8 h-8 text-rose-400 mb-2" />
+        <p className="text-xs font-semibold text-slate-200 mb-1">Video Unavailable</p>
+        <p className="text-[11px] text-slate-400 mb-3 max-w-xs">
+          Unable to play video directly in browser.
+        </p>
+        {src && (
+          <a
+            href={src}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-brand-400 text-xs font-medium transition-colors"
+          >
+            <span>Open Video</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       className={`relative group rounded-2xl overflow-hidden bg-black/90 cursor-pointer shadow-lg border border-slate-800 ${className}`}
@@ -77,6 +103,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, className
         onTimeUpdate={handleTimeUpdate}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
+        onError={() => setHasError(true)}
         className="w-full max-h-[480px] object-contain mx-auto"
       />
 

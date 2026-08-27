@@ -12,7 +12,7 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 15000, // 15s timeout — Render free tier cold starts can be slow
+  timeout: 60000, // 60s timeout — Render free tier cold starts and media uploads
 });
 
 // Attach JWT Token to every request

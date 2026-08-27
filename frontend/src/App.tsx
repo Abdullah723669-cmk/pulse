@@ -3,8 +3,11 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
 import { ChatProvider } from './context/ChatContext';
+import { CallProvider } from './context/CallContext';
 import { MainLayout } from './components/layout/MainLayout';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
+import { CallModal } from './components/call/CallModal';
+import { IncomingCallModal } from './components/call/IncomingCallModal';
 
 // Pages
 import { FeedPage } from './pages/FeedPage';
@@ -28,39 +31,45 @@ export const App: React.FC = () => {
       <BrowserRouter>
         <AuthProvider>
           <SocketProvider>
-            <ChatProvider>
-              <Routes>
-                {/* Auth Routes */}
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<RegisterPage />} />
+            <CallProvider>
+              <ChatProvider>
+                {/* Global Call UI — rendered above all pages */}
+                <CallModal />
+                <IncomingCallModal />
 
-                {/* Main Layout Routes */}
-                <Route element={<MainLayout />}>
-                  <Route path="/" element={<FeedPage />} />
-                  <Route path="/explore" element={<ExplorePage />} />
-                  <Route path="/profile/:username" element={<ProfilePage />} />
-                  <Route
-                    path="/notifications"
-                    element={
-                      <ProtectedRoute>
-                        <NotificationsPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/chat"
-                    element={
-                      <ProtectedRoute>
-                        <ChatPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                </Route>
+                <Routes>
+                  {/* Auth Routes */}
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/register" element={<RegisterPage />} />
 
-                {/* Fallback */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </ChatProvider>
+                  {/* Main Layout Routes */}
+                  <Route element={<MainLayout />}>
+                    <Route path="/" element={<FeedPage />} />
+                    <Route path="/explore" element={<ExplorePage />} />
+                    <Route path="/profile/:username" element={<ProfilePage />} />
+                    <Route
+                      path="/notifications"
+                      element={
+                        <ProtectedRoute>
+                          <NotificationsPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/chat"
+                      element={
+                        <ProtectedRoute>
+                          <ChatPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                  </Route>
+
+                  {/* Fallback */}
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </ChatProvider>
+            </CallProvider>
           </SocketProvider>
         </AuthProvider>
       </BrowserRouter>

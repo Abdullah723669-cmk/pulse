@@ -8,10 +8,13 @@ import {
   Loader2,
   ExternalLink,
   MessageSquare,
+  Phone,
+  Video,
 } from 'lucide-react';
 import { Conversation, Message } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
+import { useCall } from '../../context/CallContext';
 import { userApi } from '../../api/user.api';
 import { MessageBubble } from './MessageBubble';
 import { ChatInput } from './ChatInput';
@@ -39,7 +42,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 }) => {
   const { user } = useAuth();
   const { isUserOnline } = useSocket();
+  const { startCall, callState } = useCall();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isCallActive = callState !== 'idle';
 
   const [isFollowingTarget, setIsFollowingTarget] = useState(
     conversation.chatPermission?.isFollowing || false
@@ -133,6 +138,30 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1">
               <Lock className="w-3 h-3" /> Gated
             </span>
+          )}
+
+          {/* Audio Call Button */}
+          {canChat && (
+            <button
+              onClick={() => startCall(otherUser as any, 'audio')}
+              disabled={isCallActive || !isOnline}
+              className="p-2 rounded-xl text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              title={!isOnline ? `${otherUser.name} is offline` : isCallActive ? 'Call in progress' : 'Audio Call'}
+            >
+              <Phone className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Video Call Button */}
+          {canChat && (
+            <button
+              onClick={() => startCall(otherUser as any, 'video')}
+              disabled={isCallActive || !isOnline}
+              className="p-2 rounded-xl text-slate-400 hover:text-brand-400 hover:bg-brand-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              title={!isOnline ? `${otherUser.name} is offline` : isCallActive ? 'Call in progress' : 'Video Call'}
+            >
+              <Video className="w-4 h-4" />
+            </button>
           )}
 
           <Link

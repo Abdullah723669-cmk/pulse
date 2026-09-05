@@ -14,7 +14,11 @@ interface ChatContextType {
   setActiveConversation: (conv: Conversation | null) => void;
   loadConversations: () => Promise<void>;
   openChatWithUser: (targetUserId: string) => Promise<Conversation | null>;
-  sendMessage: (text?: string, mediaUrl?: string, mediaType?: 'image' | 'video' | 'file') => Promise<void>;
+  sendMessage: (
+    text?: string,
+    mediaUrl?: string,
+    mediaType?: 'image' | 'video' | 'file' | 'audio'
+  ) => Promise<void>;
   sendTypingStart: () => void;
   sendTypingStop: () => void;
   totalUnreadCount: number;
@@ -200,7 +204,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const sendMessage = async (
     text?: string,
     mediaUrl?: string,
-    mediaType?: 'image' | 'video' | 'file'
+    mediaType?: 'image' | 'video' | 'file' | 'audio'
   ) => {
     if (!activeConversation) return;
 

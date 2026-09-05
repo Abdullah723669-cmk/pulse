@@ -1,27 +1,50 @@
 import multer from 'multer';
+import path from 'path';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import { cloudinary } from '../config/cloudinary';
+import { ENV } from '../config/env';
 
-// Use Cloudinary as multer storage backend — files go directly to Cloudinary CDN,
-// never touch the ephemeral Render disk, so they persist across restarts/deploys.
-const storage = new CloudinaryStorage({
-  cloudinary,
-  params: async (_req: any, file: Express.Multer.File) => {
-    const isVideo = file.mimetype.startsWith('video/');
-    return {
-      folder: 'pulse_uploads',
-      resource_type: isVideo ? 'video' : 'image',
-      // Let Cloudinary auto-assign a unique public_id
-      public_id: undefined,
-      // Transformation for images: auto quality and format
-      ...(isVideo
-        ? {}
-        : {
-            transformation: [{ quality: 'auto', fetch_format: 'auto' }],
-          }),
-    };
+const isCloudinaryConfigured = Boolean(
+  process.env.CLOUDINARY_CLOUD_NAME &&
+  process.env.CLOUDINARY_API_KEY &&
+  process.env.CLOUDINARY_API_SECRET
+);
+
+const diskStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, ENV.UPLOADS_DIR);
+  },
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const ext =
+      path.extname(file.originalname).toLowerCase() ||
+      (file.mimetype.startsWith('audio/') ? '.webm' : '');
+    cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
   },
 });
+
+// Use Cloudinary as multer storage backend when configured;
+// otherwise fall back to local disk storage.
+const storage = isCloudinaryConfigured
+  ? new CloudinaryStorage({
+      cloudinary,
+      params: async (_req: any, file: Express.Multer.File) => {
+        const isVideo = file.mimetype.startsWith('video/');
+        const isAudio = file.mimetype.startsWith('audio/');
+        return {
+          folder: 'pulse_uploads',
+          // Cloudinary processes audio under 'video' resource_type
+          resource_type: isVideo || isAudio ? 'video' : 'image',
+          public_id: undefined,
+          ...(isVideo || isAudio
+            ? {}
+            : {
+                transformation: [{ quality: 'auto', fetch_format: 'auto' }],
+              }),
+        };
+      },
+    })
+  : diskStorage;
 
 const fileFilter = (
   _req: any,
@@ -44,15 +67,18 @@ const fileFilter = (
     'video/ogg',
   ];
 
-  if (
-    allowedImageMimes.includes(file.mimetype) ||
-    allowedVideoMimes.includes(file.mimetype)
-  ) {
+  const isImage = allowedImageMimes.includes(file.mimetype) || file.mimetype.startsWith('image/');
+  const isVideo = allowedVideoMimes.includes(file.mimetype) || file.mimetype.startsWith('video/');
+  const isAudio =
+    file.mimetype.startsWith('audio/') ||
+    /\.(webm|ogg|mp3|wav|m4a|aac|weba|flac)$/i.test(file.originalname);
+
+  if (isImage || isVideo || isAudio) {
     cb(null, true);
   } else {
     cb(
       new Error(
-        `Unsupported file type: ${file.mimetype}. Allowed: Images (JPG, PNG, WEBP, GIF, SVG) and Videos (MP4, WEBM, MOV).`
+        `Unsupported file type: ${file.mimetype}. Allowed: Images (JPG, PNG, WEBP, GIF, SVG), Videos (MP4, WEBM, MOV), and Audio recordings (WEBM, MP3, WAV, OGG, M4A).`
       )
     );
   }
@@ -65,3 +91,4 @@ export const upload = multer({
   },
   fileFilter,
 });
+

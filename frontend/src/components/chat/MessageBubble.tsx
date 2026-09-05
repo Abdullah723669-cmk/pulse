@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { Message } from '../../types';
 import { VideoPlayer } from '../feed/VideoPlayer';
 import { MediaLightbox } from '../ui/MediaLightbox';
+import { VoiceMessagePlayer } from './VoiceMessagePlayer';
 import { getMediaUrl } from '../../utils/media';
 
 interface MessageBubbleProps {
@@ -19,6 +20,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwn }) 
     : '';
 
   const mediaUrl = getMediaUrl(message.mediaUrl);
+  const isAudio =
+    message.mediaType === 'audio' ||
+    /\.(webm|ogg|mp3|wav|m4a|aac|weba|flac)$/i.test(message.mediaUrl || '') ||
+    /voice-message/i.test(message.mediaUrl || '');
 
   return (
     <div className={`flex flex-col mb-3.5 ${isOwn ? 'items-end' : 'items-start'}`}>
@@ -31,13 +36,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwn }) 
       >
         {/* Media attachment */}
         {mediaUrl && (
-          <div className="mb-2 rounded-xl overflow-hidden bg-slate-900/80">
-            {message.mediaType === 'video' ? (
-              <VideoPlayer src={mediaUrl} className="max-h-64 rounded-xl" />
+          <div className="mb-2 rounded-xl overflow-hidden">
+            {isAudio ? (
+              <VoiceMessagePlayer src={mediaUrl} isOwn={isOwn} />
+            ) : message.mediaType === 'video' ? (
+              <div className="bg-slate-900/80 rounded-xl overflow-hidden">
+                <VideoPlayer src={mediaUrl} className="max-h-64 rounded-xl" />
+              </div>
             ) : (
               <div
                 onClick={() => setShowLightbox(true)}
-                className="cursor-pointer group relative overflow-hidden rounded-xl"
+                className="cursor-pointer group relative overflow-hidden rounded-xl bg-slate-900/80"
               >
                 <img
                   src={mediaUrl}
@@ -81,7 +90,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwn }) 
         </div>
       </div>
 
-      {showLightbox && mediaUrl && (
+      {showLightbox && mediaUrl && !isAudio && (
         <MediaLightbox
           media={[{ url: mediaUrl, type: (message.mediaType as any) || 'image' }]}
           currentIndex={0}
@@ -92,3 +101,4 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwn }) 
     </div>
   );
 };
+

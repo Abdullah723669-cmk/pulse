@@ -118,7 +118,13 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                   <div className="flex items-center justify-between">
                     <p className="text-xs text-slate-400 truncate pr-2">
                       {conv.lastMessage?.text ||
-                        (conv.lastMessage?.mediaUrl ? '📷 [Media attachment]' : 'Started conversation')}
+                        (conv.lastMessage?.mediaType === 'audio' ||
+                        /\.(webm|ogg|mp3|wav|m4a|aac)$/i.test(conv.lastMessage?.mediaUrl || '') ||
+                        /voice-message/i.test(conv.lastMessage?.mediaUrl || '')
+                          ? '🎤 Voice message'
+                          : conv.lastMessage?.mediaUrl
+                          ? '📷 [Media attachment]'
+                          : 'Started conversation')}
                     </p>
 
                     <div className="flex items-center gap-1">

@@ -21,7 +21,7 @@ export interface User {
 
 export interface MediaItem {
   url: string;
-  type: 'image' | 'video' | 'file';
+  type: 'image' | 'video' | 'file' | 'audio';
   thumbnail?: string;
   filename?: string;
   size?: number;
@@ -74,7 +74,7 @@ export interface Message {
   senderId: string;
   text: string | null;
   mediaUrl: string | null;
-  mediaType: 'image' | 'video' | 'file' | null;
+  mediaType: 'image' | 'video' | 'file' | 'audio' | null;
   isRead: boolean;
   createdAt: string;
   sender?: {

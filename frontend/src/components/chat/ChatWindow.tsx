@@ -24,7 +24,11 @@ interface ChatWindowProps {
   messages: Message[];
   isLoadingMessages: boolean;
   typingUsers: { id: string; name: string; username: string }[];
-  onSendMessage: (text?: string, mediaUrl?: string, mediaType?: 'image' | 'video' | 'file') => Promise<void>;
+  onSendMessage: (
+    text?: string,
+    mediaUrl?: string,
+    mediaType?: 'image' | 'video' | 'file' | 'audio'
+  ) => Promise<void>;
   onTypingStart: () => void;
   onTypingStop: () => void;
   onFollowUnlocked?: () => void;

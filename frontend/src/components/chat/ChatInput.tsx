@@ -1,11 +1,16 @@
 import React, { useState, useRef } from 'react';
-import { Send, Image as ImageIcon, Video, Loader2, X } from 'lucide-react';
+import { Send, Image as ImageIcon, Video, Mic, Loader2, X } from 'lucide-react';
 import { uploadApi } from '../../api/upload.api';
 import { MediaItem } from '../../types';
 import { getMediaUrl } from '../../utils/media';
+import { VoiceRecorder } from './VoiceRecorder';
 
 interface ChatInputProps {
-  onSendMessage: (text?: string, mediaUrl?: string, mediaType?: 'image' | 'video' | 'file') => Promise<void>;
+  onSendMessage: (
+    text?: string,
+    mediaUrl?: string,
+    mediaType?: 'image' | 'video' | 'file' | 'audio'
+  ) => Promise<void>;
   onTypingStart: () => void;
   onTypingStop: () => void;
   disabled?: boolean;
@@ -21,6 +26,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const [attachment, setAttachment] = useState<MediaItem | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [isVoiceUploading, setIsVoiceUploading] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -52,6 +59,29 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
   };
 
+  const handleSendVoice = async (blob: Blob, mimeType: string) => {
+    setIsVoiceUploading(true);
+    try {
+      const ext = mimeType.includes('mp4')
+        ? 'mp4'
+        : mimeType.includes('ogg')
+        ? 'ogg'
+        : 'webm';
+      const file = new File([blob], `voice-message-${Date.now()}.${ext}`, {
+        type: mimeType,
+      });
+
+      const res = await uploadApi.uploadSingle(file);
+      await onSendMessage(undefined, res.url, 'audio');
+      setIsRecordingVoice(false);
+    } catch (err) {
+      console.error('Failed to send voice message:', err);
+      alert('Failed to send voice message. Please try again.');
+    } finally {
+      setIsVoiceUploading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if ((!text.trim() && !attachment) || isSending || isUploading || disabled) return;
@@ -74,6 +104,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       setIsSending(false);
     }
   };
+
+  if (isRecordingVoice) {
+    return (
+      <VoiceRecorder
+        onSendVoice={handleSendVoice}
+        onCancel={() => setIsRecordingVoice(false)}
+        isUploading={isVoiceUploading}
+      />
+    );
+  }
 
   return (
     <div className="p-3 bg-slate-900/90 border-t border-slate-800 backdrop-blur-md">
@@ -140,19 +180,34 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           className="flex-1 bg-slate-800/70 disabled:opacity-50 text-slate-100 text-sm rounded-xl px-4 py-2.5 border border-slate-700/80 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none placeholder-slate-500"
         />
 
+        {/* Record Voice Note Button */}
+        {!text.trim() && !attachment && !disabled && (
+          <button
+            type="button"
+            onClick={() => setIsRecordingVoice(true)}
+            className="p-2.5 rounded-xl bg-slate-800/80 hover:bg-brand-500/20 text-slate-300 hover:text-brand-400 border border-slate-700/60 hover:border-brand-500/40 transition-all active:scale-95"
+            title="Record Voice Message"
+          >
+            <Mic className="w-4 h-4 text-brand-400" />
+          </button>
+        )}
+
         {/* Send Button */}
-        <button
-          type="submit"
-          disabled={(!text.trim() && !attachment) || disabled || isSending || isUploading}
-          className="p-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 disabled:opacity-40 disabled:cursor-not-allowed text-white shadow-lg shadow-brand-600/30 transition-all active:scale-95"
-        >
-          {isSending ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Send className="w-4 h-4" />
-          )}
-        </button>
+        {(text.trim() || attachment || disabled) && (
+          <button
+            type="submit"
+            disabled={(!text.trim() && !attachment) || disabled || isSending || isUploading}
+            className="p-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 disabled:opacity-40 disabled:cursor-not-allowed text-white shadow-lg shadow-brand-600/30 transition-all active:scale-95"
+          >
+            {isSending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+          </button>
+        )}
       </form>
     </div>
   );
 };
+

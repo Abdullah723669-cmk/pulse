@@ -34,25 +34,35 @@ export const getMediaUrl = (url?: string | null): string => {
 export const normalizeMediaItem = (item: any): MediaItem | null => {
   if (!item) return null;
   if (typeof item === 'string') {
-    const isVideo = /\.(mp4|webm|ogg|mov|m4v|mkv)$/i.test(item);
+    const isAudio =
+      /\.(mp3|wav|ogg|m4a|aac|flac|weba)$/i.test(item) ||
+      /voice-message/i.test(item);
+    const isVideo = !isAudio && /\.(mp4|webm|mov|m4v|mkv)$/i.test(item);
     return {
       url: item,
-      type: isVideo ? 'video' : 'image',
+      type: isAudio ? 'audio' : isVideo ? 'video' : 'image',
     };
   }
   if (typeof item === 'object') {
     const rawUrl = item.url || item.src || item.path || '';
     if (!rawUrl) return null;
+    const isAudio =
+      item.type?.toLowerCase() === 'audio' ||
+      /\.(mp3|wav|ogg|m4a|aac|flac|weba)$/i.test(rawUrl) ||
+      /voice-message/i.test(rawUrl) ||
+      (typeof item.mimetype === 'string' && item.mimetype.startsWith('audio/'));
+
     const isVideo =
-      item.type?.toLowerCase() === 'video' ||
-      /\.(mp4|webm|ogg|mov|m4v|mkv)$/i.test(rawUrl) ||
-      (typeof item.mimetype === 'string' && item.mimetype.startsWith('video/')) ||
-      // Cloudinary video resource type marker
-      (typeof rawUrl === 'string' && rawUrl.includes('/video/upload/'));
+      !isAudio &&
+      (item.type?.toLowerCase() === 'video' ||
+        /\.(mp4|webm|mov|m4v|mkv)$/i.test(rawUrl) ||
+        (typeof item.mimetype === 'string' && item.mimetype.startsWith('video/')) ||
+        // Cloudinary video resource type marker (only if not recognized as audio)
+        (typeof rawUrl === 'string' && rawUrl.includes('/video/upload/')));
 
     return {
       url: rawUrl,
-      type: isVideo ? 'video' : 'image',
+      type: isAudio ? 'audio' : isVideo ? 'video' : 'image',
       thumbnail: item.thumbnail,
       filename: item.filename,
       size: item.size,

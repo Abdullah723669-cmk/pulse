@@ -143,7 +143,7 @@ export const VoiceMessagePlayer: React.FC<VoiceMessagePlayerProps> = ({
   const progressFraction = duration > 0 ? currentTime / duration : 0;
 
   return (
-    <div className="w-full min-w-[240px] sm:min-w-[280px] max-w-[340px] select-none py-1">
+    <div className="w-full min-w-[200px] sm:min-w-[260px] max-w-[340px] select-none py-1">
       <audio
         ref={audioRef}
         src={src}

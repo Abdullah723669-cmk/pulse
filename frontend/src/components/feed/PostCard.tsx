@@ -295,7 +295,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onDelete }) => {
 
         {/* Actions Row */}
         <div className="flex items-center justify-between pt-3 border-t border-slate-800/80 text-slate-400">
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2.5 sm:gap-6">
             {/* Like */}
             <button
               onClick={handleLike}

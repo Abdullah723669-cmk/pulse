@@ -39,7 +39,7 @@ export const Sidebar: React.FC = () => {
   ];
 
   return (
-    <aside className="w-20 md:w-64 h-screen sticky top-0 flex flex-col justify-between p-3 md:p-5 border-r border-slate-800/80 bg-slate-950/80 backdrop-blur-xl z-30">
+    <aside className="hidden md:flex md:w-64 h-screen sticky top-0 flex-col justify-between p-3 md:p-5 border-r border-slate-800/80 bg-slate-950/80 backdrop-blur-xl z-30 flex-shrink-0">
       {/* Brand Logo */}
       <div>
         <Link to="/" className="flex items-center gap-3 px-3 py-2.5 mb-6 group">

@@ -84,7 +84,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     <>
       <div className="glass-panel rounded-3xl overflow-hidden mb-6 border border-slate-800 shadow-2xl">
         {/* Cover Banner */}
-        <div className="h-44 sm:h-56 w-full relative bg-gradient-to-r from-slate-900 via-brand-950 to-indigo-950">
+        <div className="h-32 sm:h-44 md:h-56 w-full relative bg-gradient-to-r from-slate-900 via-brand-950 to-indigo-950">
           {user.coverImage && (
             <img
               src={user.coverImage}
@@ -96,9 +96,9 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         </div>
 
         {/* Profile Details Container */}
-        <div className="px-6 pb-6 pt-0 relative">
+        <div className="px-4 sm:px-6 pb-5 sm:pb-6 pt-0 relative">
           {/* Avatar and Top Actions Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between -mt-16 sm:-mt-20 mb-4 gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between -mt-12 sm:-mt-16 md:-mt-20 mb-4 gap-3 sm:gap-4">
             <div className="relative inline-block">
               <img
                 src={
@@ -106,12 +106,12 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                   `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`
                 }
                 alt={user.name}
-                className="w-28 h-28 sm:w-32 sm:h-32 rounded-full object-cover border-4 border-slate-950 shadow-2xl bg-slate-900"
+                className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-full object-cover border-4 border-slate-950 shadow-2xl bg-slate-900"
               />
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
               {isSelf ? (
                 <button
                   onClick={() => setShowEditModal(true)}
@@ -232,7 +232,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             )}
 
             {/* Stats Row */}
-            <div className="flex items-center gap-6 pt-3 border-t border-slate-800/80">
+            <div className="flex items-center justify-around sm:justify-start gap-3 sm:gap-8 pt-3 border-t border-slate-800/80">
               <div className="text-xs">
                 <span className="font-extrabold text-slate-100 text-sm mr-1">
                   {user.postsCount || 0}

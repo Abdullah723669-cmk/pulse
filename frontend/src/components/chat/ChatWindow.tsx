@@ -10,6 +10,7 @@ import {
   MessageSquare,
   Phone,
   Video,
+  ArrowLeft,
 } from 'lucide-react';
 import { Conversation, Message } from '../../types';
 import { useAuth } from '../../context/AuthContext';
@@ -32,6 +33,7 @@ interface ChatWindowProps {
   onTypingStart: () => void;
   onTypingStop: () => void;
   onFollowUnlocked?: () => void;
+  onBack?: () => void;
 }
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({
@@ -43,6 +45,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   onTypingStart,
   onTypingStop,
   onFollowUnlocked,
+  onBack,
 }) => {
   const { user } = useAuth();
   const { isUserOnline } = useSocket();
@@ -89,60 +92,74 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   return (
     <div className="flex flex-col h-full bg-[#0d1322]">
       {/* Top Header */}
-      <div className="p-3.5 px-5 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between backdrop-blur-md">
-        <div className="flex items-center gap-3">
-          <Link to={`/profile/${otherUser.username}`} className="relative group">
+      <div className="p-3 sm:p-3.5 px-3.5 sm:px-5 bg-slate-900/95 border-b border-slate-800 flex items-center justify-between backdrop-blur-md">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="md:hidden p-2 -ml-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition-colors flex-shrink-0"
+              title="Back to conversations"
+              aria-label="Back"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
+
+          <Link to={`/profile/${otherUser.username}`} className="relative group flex-shrink-0">
             <img
               src={
                 otherUser.avatar ||
                 `https://api.dicebear.com/7.x/avataaars/svg?seed=${otherUser.username}`
               }
               alt={otherUser.name}
-              className="w-10 h-10 rounded-full object-cover border border-slate-700 group-hover:border-brand-500 transition-colors"
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-slate-700 group-hover:border-brand-500 transition-colors"
             />
             {isOnline && (
-              <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-900" />
+              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-500 border-2 border-slate-900" />
             )}
           </Link>
 
-          <div>
-            <div className="flex items-center gap-1.5">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 truncate">
               <Link
                 to={`/profile/${otherUser.username}`}
-                className="font-bold text-slate-100 hover:text-brand-400 text-sm transition-colors"
+                className="font-bold text-slate-100 hover:text-brand-400 text-xs sm:text-sm transition-colors truncate"
               >
                 {otherUser.name}
               </Link>
               {otherUser.isVerified && (
-                <CheckCircle2 className="w-4 h-4 text-brand-400 fill-brand-500/20" />
+                <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-400 fill-brand-500/20 flex-shrink-0" />
               )}
             </div>
 
-            <div className="flex items-center gap-2 text-xs">
+            <div className="flex items-center gap-1.5 text-[11px] sm:text-xs">
               <span className={isOnline ? 'text-emerald-400 font-medium' : 'text-slate-400'}>
-                {isOnline ? 'Active now' : 'Offline'}
+                {isOnline ? 'Active' : 'Offline'}
               </span>
-              <span>•</span>
-              <span className="text-slate-400">@{otherUser.username}</span>
+              <span className="hidden sm:inline text-slate-500">•</span>
+              <span className="text-slate-400 hidden sm:inline truncate">@{otherUser.username}</span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Follow status badge */}
-          {conversation.chatPermission?.isMutual ? (
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              Mutual Followers
-            </span>
-          ) : isFollowingTarget ? (
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-brand-500/10 text-brand-400 border border-brand-500/20">
-              Following
-            </span>
-          ) : (
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1">
-              <Lock className="w-3 h-3" /> Gated
-            </span>
-          )}
+        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+          {/* Follow status badge (hidden on small screens to fit call buttons) */}
+          <div className="hidden lg:block">
+            {conversation.chatPermission?.isMutual ? (
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                Mutual Followers
+              </span>
+            ) : isFollowingTarget ? (
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-brand-500/10 text-brand-400 border border-brand-500/20">
+                Following
+              </span>
+            ) : (
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1">
+                <Lock className="w-3 h-3" /> Gated
+              </span>
+            )}
+          </div>
 
           {/* Audio Call Button */}
           {canChat && (

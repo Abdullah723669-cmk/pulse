@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, MessageSquare, ShieldCheck } from 'lucide-react';
+import { MessageSquare, ShieldCheck } from 'lucide-react';
 import { useChat } from '../context/ChatContext';
 import { useAuth } from '../context/AuthContext';
 import { ConversationList } from '../components/chat/ConversationList';
@@ -42,21 +42,13 @@ export const ChatPage: React.FC = () => {
     setMobileShowChat(true);
   };
 
-  return (
-    <div className="h-screen flex flex-col bg-[#090d16]">
-      {/* Mobile back header */}
-      {mobileShowChat && (
-        <div className="md:hidden p-3 bg-slate-900 border-b border-slate-800 flex items-center gap-2">
-          <button
-            onClick={() => setMobileShowChat(false)}
-            className="p-1.5 rounded-lg text-slate-300 hover:bg-slate-800"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <span className="text-xs font-bold text-slate-200">Back to Conversations</span>
-        </div>
-      )}
+  const handleBackToConversations = () => {
+    setMobileShowChat(false);
+    setActiveConversation(null);
+  };
 
+  return (
+    <div className="h-[100dvh] flex flex-col bg-[#090d16] overflow-hidden">
       {/* Main Chat Interface */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left: Conversation List */}
@@ -89,6 +81,7 @@ export const ChatPage: React.FC = () => {
               onTypingStart={sendTypingStart}
               onTypingStop={sendTypingStop}
               onFollowUnlocked={loadConversations}
+              onBack={handleBackToConversations}
             />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-[#0b101c]">

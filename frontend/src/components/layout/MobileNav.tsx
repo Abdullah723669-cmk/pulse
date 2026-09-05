@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Compass, MessageSquare, Bell, User as UserIcon } from 'lucide-react';
+import { Home, Compass, MessageSquare, Bell, User as UserIcon, LogIn } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useChat } from '../../context/ChatContext';
 
@@ -28,7 +28,7 @@ export const MobileNav: React.FC = () => {
     {
       to: user ? `/profile/${user.username}` : '/login',
       label: user ? 'Profile' : 'Sign In',
-      icon: UserIcon,
+      icon: user ? UserIcon : LogIn,
       isAvatar: Boolean(user?.avatar),
     },
   ];

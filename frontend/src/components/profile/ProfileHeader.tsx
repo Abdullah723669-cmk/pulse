@@ -11,6 +11,7 @@ import {
   Edit3,
   Loader2,
   Lock,
+  LogOut,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { User } from '../../types';
@@ -29,9 +30,14 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   user,
   onProfileUpdated,
 }) => {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, logout } = useAuth();
   const { openChatWithUser } = useChat();
   const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   const [isFollowing, setIsFollowing] = useState(user.isFollowing || false);
   const [followersCount, setFollowersCount] = useState(user.followersCount || 0);
@@ -113,13 +119,24 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             {/* Action Buttons */}
             <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
               {isSelf ? (
-                <button
-                  onClick={() => setShowEditModal(true)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-2 transition-all border border-slate-700"
-                >
-                  <Edit3 className="w-4 h-4 text-brand-400" />
-                  <span>Edit Profile</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowEditModal(true)}
+                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-2 transition-all border border-slate-700"
+                  >
+                    <Edit3 className="w-4 h-4 text-brand-400" />
+                    <span>Edit Profile</span>
+                  </button>
+
+                  <button
+                    onClick={handleLogout}
+                    className="px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-rose-950/40 text-slate-300 hover:text-rose-400 text-xs font-semibold flex items-center gap-1.5 transition-all border border-slate-700 hover:border-rose-800/60"
+                    title="Sign Out"
+                  >
+                    <LogOut className="w-4 h-4 text-rose-400" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
               ) : (
                 <>
                   {/* Follow Button */}
